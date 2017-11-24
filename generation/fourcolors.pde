@@ -389,6 +389,18 @@ void update_status(String s) {
     console.log(s);
 }
 
+void update_nodes() {
+    document.getElementById("info").innerHTML = nodes.size();
+}
+
+void update_edges() {
+    String output = "";
+    for (int i = 0; i < edges.size(); i++) {
+        int[] e = edges.get(i);
+        document.getElementById("info").innerHTML += '<br>' + e[0] + '  ' + e[1];
+    }
+}
+
 /* Loop through pixels.
 If a white one was found, trigger BFS fill_area().*/
 void find_nodes() {
@@ -404,6 +416,7 @@ void find_nodes() {
             }
         }
     }
+    update_nodes();
 }
 
 /* Rand-pixel pro node identifizieren, um diese mit anderen nodes zu vergleichen*/
@@ -440,6 +453,7 @@ void find_edges() {
             }
         }
     }
+    update_edges();
 }
 
 ArrayList find_marginal_points(color c) {
