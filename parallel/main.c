@@ -23,6 +23,7 @@ int *offsets, *ranges; //vetex ID offset and range list
                     //used for gathering color list
                     //size: P
 int V, E; //number of vertices and edges
+int max_degree;
 int rank; //ID in MPI
 int P; //number of prcesses in MPI
 
@@ -99,6 +100,29 @@ void printGraph() {
     printf("\n");
 }
 
+void printLists() {
+    printf("offsets = \n");
+    for(int i = 0; i != P; ++i) {
+        printf("%d, ", offsets[i]);
+    }
+    printf("\n");
+    printf("ranges = \n");
+    for(int i = 0; i != P; ++i) {
+        printf("%d, ", ranges[i]);
+    }
+    printf("\n");
+    printf("subgraph_offsets = \n");
+    for(int i = 0; i != P; ++i) {
+        printf("%d, ", subgraph_offsets[i]);
+    }
+    printf("\n");
+    printf("subgraph_ranges = \n");
+    for(int i = 0; i != P; ++i) {
+        printf("%d, ", subgraph_ranges[i]);
+    }
+    printf("\n");
+}
+
 void init_lists(){
     offsets = (int *)malloc(P*sizeof(int));
     ranges = (int *)malloc(P*sizeof(int));
@@ -121,6 +145,10 @@ void init_lists(){
     }
     ranges[P-1] = V - offsets[P-1];
     subgraph_ranges[P-1] = V*V - subgraph_offsets[P-1];
+#ifdef DEBUG
+    if(rank == 0)
+        printLists();
+#endif
     //allocate subcolors & subgraph
     subcolors = (int *)malloc(ranges[rank]*sizeof(int));
     memset(subcolors, -1, ranges[rank]*sizeof(int));
@@ -128,15 +156,62 @@ void init_lists(){
 }
 
 void ldf() {
-    int start_id = offset[rank];
-    for(int i = 0; i != ranges[rank]; ++i) {
-        if(subcolor[i] != -1) continue; //this vertex is already colored
-        for(int j = 0; j != V; ++j) {
-            if(subgraph[IND(i, j, V)] == 1) { //neighbor found
+    int start_id = offsets[rank];
+    int select;
+    //neighbor_color is used to keep track of which colors are used,
+    //at most V different colors will be used
+    int *neighbor_color = (int *)malloc(max_degree*sizeof(int));
 
+    for(int iteration = 0; iteration != max_degree; ++iteration) {
+        //go through all the vertices then color
+        //TODO: omp parallel
+        for(int i = start_id; i != offsets[rank+1]; ++i) {
+            if(subcolors[i-start_id] != -1) continue; //this vertex is already colored
+            select = 1;
+            memset(neighbor_color, 0, max_degree*sizeof(int));
+            for(int j = 0; j != V; ++j) {
+                if(subgraph[IND(i-start_id, j, V)] == 1) { //neighbor found
+                    if(colors[j] != -1) { //neighbor is already colored
+                        //update neighbor_color
+                        neighbor_color[colors[j]] = 1;
+                    }
+                    else if(degrees[j] > degrees[i] ||
+                      (degrees[j] == degrees[i] && weights[j] > weights[i])) {
+                        select = 0;
+                        break;
+                    }
+                }
+            }
+            if(select == 1) {
+                for(int j = 0; j != max_degree; ++j) {
+                    if(neighbor_color[j] == 0) {
+                        subcolors[i-start_id] = j;
+                        break;
+                    }
+                }
+                //sanity check
+                if(subcolors[i-start_id] == -1) {
+                    printf("Error: failed to color vertex %d!\n", i);
+#ifdef DEBUG_LDF
+                    printf("neighbor_color = \n");
+                    for(int color_id = 0; color_id != max_degree; color_id++) {
+                        printf("%d, ", neighbor_color[color_id]);
+                    }
+                    printf("\n");
+#endif
+                }
             }
         }
+
+        //gather color
+        MPI_Gatherv(subcolors, ranges[rank], MPI_INT,
+        colors, ranges, offsets, MPI_INT, 0, MPI_COMM_WORLD);
+
+        //broadcast color
+        MPI_Bcast(colors, V, MPI_INT, 0, MPI_COMM_WORLD);
     }
+
+    free(neighbor_color);
 }
 
 int main(int argc, char** argv) {
@@ -152,6 +227,10 @@ int main(int argc, char** argv) {
     }
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &P);
+#ifdef DEBUG
+    if(rank == 0)
+        printf("P = %d\n", P);
+#endif
 
     if(argc != 2) {
         if(rank == 0) printf("Usage: \n");
@@ -171,9 +250,11 @@ int main(int argc, char** argv) {
     degrees = (int *)malloc(V*sizeof(int));
     weights = (int *)malloc(V*sizeof(int));
     colors = (int *)malloc(V*sizeof(int));
+    memset(colors, -1, V*sizeof(int));
     if(rank == 0) {
         int count; //temporal count for degree
-        //TODO: omp parallel
+        max_degree = 0;
+        //TODO: omp parallel, reduction for max_degree
         for(int i = 0; i != V; ++i) {
             //degree
             count = 0;
@@ -181,16 +262,17 @@ int main(int argc, char** argv) {
                 count += graph[IND(i, j, V)];
             }
             degrees[i] = count;
+            if(count > max_degree) max_degree = count;
             //weight TODO: the weight is vertex ID for now
             weights[i] = i;
-            //color
-            colors[i] = -1;
         }
-        
+#ifdef DEBUG
         printGraph();
+#endif
     }
 
     //broadcast weights and degrees
+    MPI_Bcast(&max_degree, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(degrees, V, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(weights, V, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -203,6 +285,11 @@ int main(int argc, char** argv) {
 
     //Largest Degree First algorithm
     ldf();
+
+#ifdef DEBUG
+    if(rank == 0)
+        printGraph();
+#endif
 
     //TODO: write graph
     //

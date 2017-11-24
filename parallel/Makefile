@@ -2,7 +2,7 @@ RM := rm -rf
 
 HEADERS = 
 OBJS = main.o
-CCFLAG = -std=c99
+CCFLAG = -std=c99 -DDEBUG
 
 all: graphColoring
 
