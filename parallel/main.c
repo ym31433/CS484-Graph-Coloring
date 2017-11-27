@@ -27,6 +27,18 @@ int max_degree;
 int rank; //ID in MPI
 int P; //number of prcesses in MPI
 
+void checker() {
+    int start_id = offsets[rank];
+    for(int i = 0; i != ranges[rank]; ++i) {
+        for(int j = 0; j != V; ++j) {
+            if(subgraph[IND(i, j, V)] == 1 && colors[i+start_id] == colors[j]) {
+                printf("Error: %d and %d have the same color!\n", i+start_id, j);
+            }
+        }
+    }
+    printf("rank%d finished checking.\n", rank);
+}
+
 void read_graph(char* filename) {
     //debug
     //printf("filename = %s\n", filename);
@@ -165,18 +177,18 @@ void ldf() {
     for(int iteration = 0; iteration != max_degree; ++iteration) {
         //go through all the vertices then color
         //TODO: omp parallel
-        for(int i = start_id; i != offsets[rank+1]; ++i) {
-            if(subcolors[i-start_id] != -1) continue; //this vertex is already colored
+        for(int i = 0; i != ranges[rank]; ++i) {
+            if(subcolors[i] != -1) continue; //this vertex is already colored
             select = 1;
             memset(neighbor_color, 0, max_degree*sizeof(int));
             for(int j = 0; j != V; ++j) {
-                if(subgraph[IND(i-start_id, j, V)] == 1) { //neighbor found
+                if(subgraph[IND(i, j, V)] == 1) { //neighbor found
                     if(colors[j] != -1) { //neighbor is already colored
                         //update neighbor_color
                         neighbor_color[colors[j]] = 1;
                     }
-                    else if(degrees[j] > degrees[i] ||
-                      (degrees[j] == degrees[i] && weights[j] > weights[i])) {
+                    else if(degrees[j] > degrees[i+start_id] ||
+                      (degrees[j] == degrees[i+start_id] && weights[j] > weights[i+start_id])) {
                         select = 0;
                         break;
                     }
@@ -185,12 +197,12 @@ void ldf() {
             if(select == 1) {
                 for(int j = 0; j != max_degree; ++j) {
                     if(neighbor_color[j] == 0) {
-                        subcolors[i-start_id] = j;
+                        subcolors[i] = j;
                         break;
                     }
                 }
                 //sanity check
-                if(subcolors[i-start_id] == -1) {
+                if(subcolors[i] == -1) {
                     printf("Error: failed to color vertex %d!\n", i);
 #ifdef DEBUG_LDF
                     printf("neighbor_color = \n");
@@ -289,6 +301,9 @@ int main(int argc, char** argv) {
 #ifdef DEBUG
     if(rank == 0)
         printGraph();
+#endif
+#ifdef CHECKER
+    checker();
 #endif
 
     //TODO: write graph

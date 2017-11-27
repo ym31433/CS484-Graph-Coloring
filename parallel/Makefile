@@ -2,9 +2,9 @@ RM := rm -rf
 
 HEADERS = 
 OBJS = main.o
-CCFLAG = -std=c99 -DDEBUG
+CCFLAG = -std=c99 -DDEBUG -DCHECKER
 
-all: graphColoring
+all: clean graphColoring
 
 graphColoring: $(OBJS)
 	@echo 'Building target: $@'
