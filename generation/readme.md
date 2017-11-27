@@ -23,3 +23,7 @@ First, the user draws on the canvas. Once finished, the process could be as foll
 4. Build inner graph representation
 5. Solve graph with Welsh-Powell and if this fails, try backtracking
 6. Display results on canvas
+
+
+TODO:
+Debug to eliminate duplicate edges in the graph from randomGen.py
