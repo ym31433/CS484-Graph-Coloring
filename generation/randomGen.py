@@ -306,6 +306,13 @@ if __name__ == '__main__':
     graph = approach(nodes, num_edges, args.loops, args.multigraph,
                      args.digraph)
 
+    ede = {}
+    for edge in graph.edges:
+        if edge[0] not in ede:
+            ede[edge[0]] = set()
+        size = len(ede[edge[0]])
+        ede[edge[0]].add(edge[1])
+        assert (size != len(ede[edge[0]]))
     # Display
     if not args.no_output:
         graph.sort_edges()
