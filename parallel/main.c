@@ -30,9 +30,14 @@ int P; //number of prcesses in MPI
 void checker() {
     int start_id = offsets[rank];
     for(int i = 0; i != ranges[rank]; ++i) {
-        for(int j = 0; j != V; ++j) {
-            if(subgraph[IND(i, j, V)] == 1 && colors[i+start_id] == colors[j]) {
-                printf("Error: %d and %d have the same color!\n", i+start_id, j);
+        if(colors[i+start_id] == -1) {
+            printf("Error: %d is not colored!\n", i+start_id);
+        }
+        else {
+            for(int j = 0; j != V; ++j) {
+                if(subgraph[IND(i, j, V)] == 1 && colors[i+start_id] == colors[j]) {
+                    printf("Error: %d and %d have the same color!\n", i+start_id, j);
+                }
             }
         }
     }
@@ -170,11 +175,15 @@ void init_lists(){
 void ldf() {
     int start_id = offsets[rank];
     int select;
+    int num_uncolored = ranges[rank]; //number of uncolored vertices
+    int max_num_uncolored = ranges[rank]; //max number of uncolored vertices across all processes
     //neighbor_color is used to keep track of which colors are used,
     //at most V different colors will be used
     int *neighbor_color = (int *)malloc(max_degree*sizeof(int));
 
-    for(int iteration = 0; iteration != max_degree; ++iteration) {
+    //for(int iteration = 0; iteration != max_degree; ++iteration) {
+    while(max_num_uncolored != 0) {
+    //while(1) {
         //go through all the vertices then color
         //TODO: omp parallel
         for(int i = 0; i != ranges[rank]; ++i) {
@@ -195,6 +204,7 @@ void ldf() {
                 }
             }
             if(select == 1) {
+                num_uncolored--;
                 for(int j = 0; j != max_degree; ++j) {
                     if(neighbor_color[j] == 0) {
                         subcolors[i] = j;
@@ -218,6 +228,10 @@ void ldf() {
         //gather color
         MPI_Gatherv(subcolors, ranges[rank], MPI_INT,
         colors, ranges, offsets, MPI_INT, 0, MPI_COMM_WORLD);
+
+        //check whether all the vertices are colored
+        MPI_Allreduce(&num_uncolored, &max_num_uncolored, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        //if(max_num_uncolored == 0) break;
 
         //broadcast color
         MPI_Bcast(colors, V, MPI_INT, 0, MPI_COMM_WORLD);
@@ -305,7 +319,6 @@ int main(int argc, char** argv) {
 #ifdef CHECKER
     checker();
 #endif
-
     //TODO: write graph
     //
     free(graph);

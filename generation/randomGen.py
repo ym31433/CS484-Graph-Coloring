@@ -321,7 +321,7 @@ if __name__ == '__main__':
         else:
             print (len(graph.nodes))
             for edge in graph.edges:
-                print("%i\t%i" % edge)
+                print("%i %i" % edge)
 
     # Save to GML
     if args.gml:

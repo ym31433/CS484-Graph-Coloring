@@ -2,7 +2,9 @@ RM := rm -rf
 
 HEADERS = 
 OBJS = main.o
-CCFLAG = -std=c99 -DDEBUG -DCHECKER
+CCFLAG = -std=c99 \
+-DCHECKER#\
+-DDEBUG
 
 all: clean graphColoring
 
