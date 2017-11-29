@@ -177,19 +177,19 @@ void ldf() {
     int select;
     int num_uncolored = ranges[rank]; //number of uncolored vertices
     int max_num_uncolored = ranges[rank]; //max number of uncolored vertices across all processes
-    //neighbor_color is used to keep track of which colors are used,
-    //at most V different colors will be used
-    int *neighbor_color = (int *)malloc(max_degree*sizeof(int));
 
     //for(int iteration = 0; iteration != max_degree; ++iteration) {
     while(max_num_uncolored != 0) {
-    //while(1) {
         //go through all the vertices then color
         //TODO: omp parallel
-        for(int i = 0; i != ranges[rank]; ++i) {
+#pragma omp parallel for private(select)
+        for(int i = 0; i < ranges[rank]; ++i) {
             if(subcolors[i] != -1) continue; //this vertex is already colored
-            select = 1;
+            //neighbor_color is used to keep track of which colors are used,
+            //at most V different colors will be used
+            int *neighbor_color = (int *)malloc(max_degree*sizeof(int));
             memset(neighbor_color, 0, max_degree*sizeof(int));
+            select = 1;
             for(int j = 0; j != V; ++j) {
                 if(subgraph[IND(i, j, V)] == 1) { //neighbor found
                     if(colors[j] != -1) { //neighbor is already colored
@@ -204,6 +204,7 @@ void ldf() {
                 }
             }
             if(select == 1) {
+#pragma omp atomic
                 num_uncolored--;
                 for(int j = 0; j != max_degree; ++j) {
                     if(neighbor_color[j] == 0) {
@@ -222,8 +223,9 @@ void ldf() {
                     printf("\n");
 #endif
                 }
-            }
-        }
+            } //end of if(select == 1)
+            free(neighbor_color);
+        } //end of loop that goes through each vertex in subgraph
 
         //gather color
         MPI_Gatherv(subcolors, ranges[rank], MPI_INT,
@@ -235,9 +237,7 @@ void ldf() {
 
         //broadcast color
         MPI_Bcast(colors, V, MPI_INT, 0, MPI_COMM_WORLD);
-    }
-
-    free(neighbor_color);
+    } //end of while(max_num_uncolored != 0)
 }
 
 int main(int argc, char** argv) {
@@ -259,18 +259,18 @@ int main(int argc, char** argv) {
 #endif
 
     if(argc != 2) {
-        if(rank == 0) printf("Usage: \n");
+        if(rank == 0) printf("Usage: mpirun -np <#processes> ./graphColoring <input_file>\n");
         MPI_Finalize();
         return -1;
     }
-
+    
     //read graph
     if(rank == 0) {
         strcpy(input_filename, argv[1]);
         read_graph(input_filename);
     } 
     MPI_Bcast(&V, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&E, 1, MPI_INT, 0, MPI_COMM_WORLD); //TODO: do we need this?
+    //MPI_Bcast(&E, 1, MPI_INT, 0, MPI_COMM_WORLD); //do we need this?
 
     //initialize weights, degrees and colors
     degrees = (int *)malloc(V*sizeof(int));
@@ -289,7 +289,7 @@ int main(int argc, char** argv) {
             }
             degrees[i] = count;
             if(count > max_degree) max_degree = count;
-            //weight TODO: the weight is vertex ID for now
+            //weight the weight is vertex ID for now
             weights[i] = i;
         }
 #ifdef DEBUG

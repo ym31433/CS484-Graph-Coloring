@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export OMP_NUM_THREADS=8
 mpirun -np 4 ./graphColoring /home/yhtseng2/CS484-Graph-Coloring/generation/\
 1000_10000.txt
 #1000_10000.txt

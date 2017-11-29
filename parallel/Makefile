@@ -2,7 +2,7 @@ RM := rm -rf
 
 HEADERS = 
 OBJS = main.o
-CCFLAG = -std=c99 \
+CCFLAG = -std=c99 -fopenmp \
 -DCHECKER#\
 -DDEBUG
 
@@ -10,7 +10,7 @@ all: clean graphColoring
 
 graphColoring: $(OBJS)
 	@echo 'Building target: $@'
-	mpicc -O2 -o "./graphColoring" $(OBJS)
+	mpicc -O2 -o "./graphColoring" $(OBJS) $(CCFLAG)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
