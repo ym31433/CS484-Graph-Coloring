@@ -87,6 +87,22 @@ void read_graph(char* filename) {
     fclose(file);
 }
 
+void write_graph(char* filename) {
+    FILE* file = fopen(filename, "w");
+    if(!file) {
+        printf("Unable to open file %s\n", filename);
+        return;
+    }
+
+    char color_str[10];
+    for(int i = 0; i != V; ++i) {
+        sprintf(color_str, "%d\n", colors[i]);
+        fputs(color_str, file);
+    }
+
+    fclose(file);
+}
+
 //used to debug
 void printGraph() {
     //graph
@@ -181,7 +197,6 @@ void ldf() {
     //for(int iteration = 0; iteration != max_degree; ++iteration) {
     while(max_num_uncolored != 0) {
         //go through all the vertices then color
-        //TODO: omp parallel
 #pragma omp parallel for private(select)
         for(int i = 0; i < ranges[rank]; ++i) {
             if(subcolors[i] != -1) continue; //this vertex is already colored
@@ -243,6 +258,7 @@ void ldf() {
 int main(int argc, char** argv) {
 
     char* input_filename = malloc(1000);
+    char* output_filename = malloc(1000);
     
     int provided; // check the supported MPI_THREAD function
     //initialize MPI
@@ -258,8 +274,8 @@ int main(int argc, char** argv) {
         printf("P = %d\n", P);
 #endif
 
-    if(argc != 2) {
-        if(rank == 0) printf("Usage: mpirun -np <#processes> ./graphColoring <input_file>\n");
+    if(argc != 3) {
+        if(rank == 0) printf("Usage: mpirun -np <#processes> ./graphColoring <input_file> <output_file>\n");
         MPI_Finalize();
         return -1;
     }
@@ -320,7 +336,11 @@ int main(int argc, char** argv) {
     checker();
 #endif
     //TODO: write graph
-    //
+    if(rank == 0) {
+        strcpy(output_filename, argv[2]);
+        write_graph(output_filename);
+    }
+
     free(graph);
     free(colors);
     free(weights);
@@ -332,6 +352,7 @@ int main(int argc, char** argv) {
     free(offsets);
     free(ranges);
     free(input_filename);
+    free(output_filename);
     MPI_Finalize();
     return 0;
 }
