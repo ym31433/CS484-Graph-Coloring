@@ -1,1 +1,3 @@
 generation/*.txt
+code/parallel/output/*
+code/serial/output/*
