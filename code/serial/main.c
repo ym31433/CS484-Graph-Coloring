@@ -1,8 +1,10 @@
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "util.h"
 #include <time.h>
+#include <stdint.h>
 
 void checker() {
     for(int i = 0; i != V; ++i) {
@@ -77,7 +79,8 @@ int main(int argc, char** argv) {
 
     char* input_filename = malloc(1000);
     char* output_filename = malloc(1000);
-    time_t start_time, end_time, elapsed_time;
+    struct timespec start_time, end_time;
+    uint64_t elapsed_time;
     
     if(argc != 3) {
         printf("Usage: mpirun -np <#processes> ./graphColoring <input_file> <output_file>\n");
@@ -89,7 +92,7 @@ int main(int argc, char** argv) {
     read_graph(input_filename);
 
     //record time
-    start_time = time(NULL);
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
 
     //initialize weights, degrees and colors
     degrees = (int *)malloc(V*sizeof(int));
@@ -117,9 +120,9 @@ int main(int argc, char** argv) {
     ldf();
 
     //record time
-    end_time = time(NULL);
-    elapsed_time = start_time - end_time;
-    printf("Time taken: %f seconds.\n", elapsed_time);
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    elapsed_time = (end_time.tv_sec - start_time.tv_sec)*1000000 + (end_time.tv_nsec - start_time.tv_nsec)/1000;
+    printf("Time taken: %llu microseconds.\n", (long long unsigned int)elapsed_time);
 
 #ifdef DEBUG
     printGraph();
